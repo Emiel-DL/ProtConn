@@ -1,0 +1,52 @@
+---
+title: "ProtConn_figuur"
+author: "Emiel De Lombaerde"
+date: "2025-09-26"
+output: html_document
+---
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(message = FALSE, warning = FALSE, echo = FALSE)
+library(tidyverse)
+library(git2rdata)
+library(plotly)
+library(INBOtheme)
+library(htmlwidgets)
+set.seed(20200520)
+setWidgetIdSeed(20200520)
+options(htmlwidgets.TOJSON_ARGS = list(pretty = TRUE))
+```
+
+```{r data_inlezen} 
+gegevens <- readxl::read_excel("C:/Users/emiel_delombaerde/Documents/R/ProtConn/protconn_resultaten_totaal.xlsx") %>%
+  mutate(low = (Percentage - SD) * 100,
+         high = (Percentage + SD)* 100,
+         Percentage = Percentage * 100)
+```
+
+```{r grafiek, fig.width = 8, fig.height = 6, fig.cap = "Figuur 1: aandeel (%) niet-beschermde, beschermde en geconnecteerde beschermde natuur in de totale oppervlakte van Vlaanderen per jaar. 'Beschermd en geconnecteerd' is een deelverzameling binnen de categorie ‘beschermd’. De stippellijnen geven de doelen van de biodiversiteitsverdragen van de Verenigde Naties voor 2020 (17%) en 2030 (30%) weer. De gekleurde band rond de lijn voor 'beschermd en geconnecteerd' geeft de spreiding (± 1 standaardafwijking) van dit aandeel weer, gebaseerd op vier dispersieafstanden (zie metadata)."}
+
+#data voorbereiden + kleurpalette opmaken
+gegevens$ProtConn <- factor(gegevens$ProtConn,
+                            levels = c("Niet beschermd", "Beschermd",
+                                       "Beschermd en geconnecteerd"))
+# gegevens$show_errorbar <- gegevens$SD != 0
+
+# pal_func <- c(inbo_steun_blauw, inbo_steun_donkerroos, inbo_hoofd)
+
+ggplot(gegevens, aes(x = Jaar, y = Percentage)) +
+  geom_point(aes(col = ProtConn)) +
+  geom_line(aes(col = ProtConn)) +
+  geom_ribbon(aes(ymin = low, ymax = high, fill = ProtConn), alpha = 0.2) +
+  geom_hline(yintercept = 17, col = inbo_kaki, linetype = "dashed") +
+  geom_hline(yintercept = 30, col = inbo_groen, linetype = "dashed") +
+  annotate("text", y = 17, x = 2010, label = "CBD Achidoel 11 (2020)", vjust = -1, col = inbo_kaki) +
+  annotate("text", y = 30, x = 2010, label = "CBD GBF-doel 3 (2030)", vjust = -1, col = inbo_groen) +
+  ylab("Percentage (%)") +
+  ylim(0, 100)
+
+
+
+```
+
+
