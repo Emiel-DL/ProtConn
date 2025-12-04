@@ -74,7 +74,7 @@ controle_totaal <- patches_alle_jaren %>%
 print(controle_totaal)
 
 
-## wegschrijven gpkg per jaar
+## wegschrijven shape per jaar
 
 # 1. Definieer de output map
 output_map <- "data/data_toon/shapes_per_jaar"
@@ -94,7 +94,7 @@ for (huidig_jaar in jaren) {
   temp_layer <- patches_alle_jaren %>%
     filter(jaar == huidig_jaar)
 
-  # Maak de bestandsnaam (bv: "patches_2021.gpkg")
+  # Maak de bestandsnaam (bv: "patches_2021.shp")
   bestandsnaam <- file.path(output_map, paste0("patches_", huidig_jaar, ".shp"))
 
   # Schrijf weg (delete_dsn = TRUE overschrijft het bestand als het al bestaat)
@@ -142,38 +142,38 @@ for (i in 1:4) {
   file_out <- files_buiten_selectie[i]
 
   message(paste("--- Verwerken jaar:", huidig_jaar, "---"))
-  message(paste("Binnen file:", basename(file_in)))
-  message(paste("Buiten file:", basename(file_out)))
 
-  # A. Inlezen Binnen-laag (deze is al schoon, maar voor zekerheid select geometry)
+  # A. Inlezen Binnen-laag
   layer_binnen <- st_read(file_in, quiet = TRUE) %>%
-    dplyr::select(geometry) %>%
-    mutate(bron = "binnen_vlaanderen")
+    dplyr::select(geometry)
+  # mutate(bron = "binnen") # Niet strikt nodig als we toch gaan dissolven
 
   # B. Inlezen & Schoonmaken Buiten-laag
-  # We moeten hier dezelfde strenge cleaning toepassen als eerder!
   layer_buiten_raw <- st_read(file_out, quiet = TRUE) %>%
     dplyr::select(geometry) %>%
     st_transform(crs = 31370) %>%
     st_make_valid() %>%
-    ms_simplify() %>%
+    ms_simplify() %>% # Let op: check of je hier keep_shapes=TRUE nodig hebt zoals eerder besproken!
     st_make_valid() %>%
     st_collection_extract("POLYGON") %>%
     st_cast("POLYGON")
 
   # C. De 'Knip': Verwijder alles wat IN Vlaanderen ligt uit de buiten-laag
-  message("   ...Vlaanderen wegknippen uit buiten-laag (st_difference)...")
+  message("   ...Vlaanderen wegknippen uit buiten-laag...")
 
   layer_buiten_clean <- layer_buiten_raw %>%
     st_difference(vlaanderen_crs) %>%
-    # st_difference kan lijnen/punten achterlaten op de grens -> opschonen
-    st_collection_extract("POLYGON") %>%
-    mutate(bron = "buiten_vlaanderen")
+    st_collection_extract("POLYGON")
 
-  # D. Samenvoegen
+  # D. Samenvoegen en DISSOLVEN (De aanpassing)
+  message("   ...Samenvoegen en grenzen wissen...")
+
   layer_totaal <- bind_rows(layer_binnen, layer_buiten_clean) %>%
-    mutate(jaar = huidig_jaar) %>%
-    st_cast("POLYGON") # Zorg dat alles strikt polygon is
+    st_make_valid() %>%
+    st_union() %>%              # Hier worden de grenzen gewist
+    st_cast("POLYGON") %>%      # Hier worden unieke patches gemaakt
+    st_sf() %>%
+    mutate(jaar = huidig_jaar)
 
   # E. Opslaan
   output_naam <- file.path(dir_output, paste0("patches_transboundary_", huidig_jaar, ".shp"))
