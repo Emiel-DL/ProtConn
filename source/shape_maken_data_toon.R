@@ -1,7 +1,7 @@
 library(sf)
 library(tidyverse)
 library(mapview)
-
+library(rmapshaper)
 shape <- st_read("data/data_toon/opp_data_GIS.shp")
 
 ##### parallel
@@ -94,7 +94,7 @@ for (huidig_jaar in jaren) {
   temp_layer <- patches_alle_jaren %>%
     filter(jaar == huidig_jaar)
 
-  # Maak de bestandsnaam (bv: "patches_2021.shp")
+  # Maak de bestandsnaam (bv: "patches_2021.gpkg")
   bestandsnaam <- file.path(output_map, paste0("patches_", huidig_jaar, ".shp"))
 
   # Schrijf weg (delete_dsn = TRUE overschrijft het bestand als het al bestaat)
@@ -152,18 +152,21 @@ for (i in 1:4) {
   layer_buiten_raw <- st_read(file_out, quiet = TRUE) %>%
     dplyr::select(geometry) %>%
     st_transform(crs = 31370) %>%
-    st_make_valid() %>%
-    ms_simplify() %>% # Let op: check of je hier keep_shapes=TRUE nodig hebt zoals eerder besproken!
-    st_make_valid() %>%
-    st_collection_extract("POLYGON") %>%
-    st_cast("POLYGON")
+    # st_cast("POLYGON") %>%
+    st_make_valid()
+  # %>%
+    # ms_simplify() %>% # Let op: check of je hier keep_shapes=TRUE nodig hebt zoals eerder besproken!
+    # st_make_valid() %>%
+    # st_collection_extract("POLYGON") %>%
+    # st_cast("POLYGON")
 
   # C. De 'Knip': Verwijder alles wat IN Vlaanderen ligt uit de buiten-laag
   message("   ...Vlaanderen wegknippen uit buiten-laag...")
 
   layer_buiten_clean <- layer_buiten_raw %>%
-    st_difference(vlaanderen_crs) %>%
-    st_collection_extract("POLYGON")
+    st_difference(vlaanderen_crs)
+  # %>%
+  #   st_collection_extract("POLYGON")
 
   # D. Samenvoegen en DISSOLVEN (De aanpassing)
   message("   ...Samenvoegen en grenzen wissen...")
